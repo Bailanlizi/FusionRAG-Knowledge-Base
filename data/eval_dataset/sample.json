@@ -1,0 +1,17 @@
+[
+  {
+    "question": "FusionRAG 的核心检索策略是什么？",
+    "ground_truth_docs": ["demo_doc"],
+    "answer": "融合关键词 BM25 与语义向量检索，结合 RRF 和 Reranker"
+  },
+  {
+    "question": "系统使用什么向量数据库？",
+    "ground_truth_docs": ["demo_doc"],
+    "answer": "Milvus 2.5+"
+  },
+  {
+    "question": "自适应 Multi-Query 如何根据问题复杂度调整查询数量？",
+    "ground_truth_docs": ["demo_doc"],
+    "answer": "SIMPLE 1个，MODERATE 2-3个，COMPLEX 3-5个"
+  }
+]

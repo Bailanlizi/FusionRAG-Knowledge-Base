@@ -1,0 +1,44 @@
+models:
+  embedding: qwen3-vl-embedding
+  embedding_dim: 1024
+  rerank: qwen3-vl-rerank
+  llm: deepseek-v4-flash
+  llm_temperature: 0.1
+
+chunking:
+  min_tokens: 200
+  target_min: 512
+  target_max: 1024
+  merge_short_chunks: true
+
+retrieval:
+  dense_top_k: 20
+  sparse_top_k: 20
+  rrf_k: 60
+  candidate_top_n: 20
+  rerank_top_m: 5
+
+multi_query:
+  simple: 1
+  moderate: 3
+  complex: 5
+
+ocr:
+  enabled: false
+  timeout_seconds: 120
+  complexity_threshold: 0.5
+
+ingest:
+  batch_size: 16
+  max_retries: 3
+
+milvus:
+  collection_name: fusion_rag_chunks
+  index_type: AUTOINDEX
+  metric_type: COSINE
+
+logging:
+  level: INFO
+  file: logs/fusion_rag.log
+  max_bytes: 10485760
+  backup_count: 5
