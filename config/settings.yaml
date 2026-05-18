@@ -1,5 +1,5 @@
 models:
-  embedding: qwen3-vl-embedding
+  embedding: text-embedding-v3
   embedding_dim: 1024
   rerank: qwen3-vl-rerank
   llm: deepseek-v4-flash

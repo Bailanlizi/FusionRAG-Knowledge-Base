@@ -6,9 +6,9 @@
 - COMPLEX：需要多角度检索，生成3-5个不同角度的查询
 
 输出格式（仅 JSON，无其他文字）：
-{
+{{
   "complexity": "SIMPLE|MODERATE|COMPLEX",
   "queries": ["查询1", "查询2", ...]
-}
+}}
 
 用户问题：{question}
