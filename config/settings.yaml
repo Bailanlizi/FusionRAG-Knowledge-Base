@@ -1,7 +1,7 @@
 models:
   embedding: text-embedding-v3
   embedding_dim: 1024
-  rerank: qwen3-vl-rerank
+  rerank: qwen3-rerank
   llm: deepseek-v4-flash
   llm_temperature: 0.1
 
