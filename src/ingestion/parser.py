@@ -12,6 +12,17 @@ from src.utils.logger import logger
 
 SUPPORTED_EXTENSIONS = {".pdf", ".md", ".markdown", ".txt"}
 
+# Confluence exports: dsid_<hex32>__<slug>.md
+_DSID_FILENAME_RE = re.compile(r"^(dsid_[a-f0-9]{32})__", re.IGNORECASE)
+
+
+def resolve_doc_id(path: Path) -> str:
+    """Use stable source id from filename when present, else path-hash."""
+    match = _DSID_FILENAME_RE.match(path.name)
+    if match:
+        return match.group(1).lower()
+    return hashlib.md5(str(path.resolve()).encode()).hexdigest()[:16]
+
 
 def _file_hash(path: Path) -> str:
     h = hashlib.sha256()
@@ -67,7 +78,7 @@ class DocumentParser:
         if path.suffix.lower() not in SUPPORTED_EXTENSIONS:
             raise ValueError(f"Unsupported file type: {path.suffix}")
 
-        doc_id = hashlib.md5(str(path).encode()).hexdigest()[:16]
+        doc_id = resolve_doc_id(path)
         content_hash = _file_hash(path)
 
         if path.suffix.lower() in {".md", ".markdown", ".txt"}:

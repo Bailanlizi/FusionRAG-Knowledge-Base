@@ -6,6 +6,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+from src.evaluation.dataset import ground_truth_docs, load_dataset
 from src.evaluation.metrics import (
     aggregate_metrics,
     hit_at_k,
@@ -25,22 +26,7 @@ class Evaluator:
         self.query_processor = QueryProcessor()
 
     def load_dataset(self, path: str | Path) -> list[dict]:
-        path = Path(path)
-        if path.is_dir():
-            items = []
-            for fp in path.glob("*.json"):
-                items.extend(self._load_json_file(fp))
-            return items
-        return self._load_json_file(path)
-
-    @staticmethod
-    def _load_json_file(path: Path) -> list[dict]:
-        data = json.loads(path.read_text(encoding="utf-8"))
-        if isinstance(data, list):
-            return data
-        if isinstance(data, dict) and "items" in data:
-            return data["items"]
-        return [data]
+        return load_dataset(path)
 
     def evaluate(
         self,
@@ -53,11 +39,14 @@ class Evaluator:
 
         for item in dataset:
             question = item["question"]
-            relevant = set(item.get("ground_truth_docs", []))
+            relevant = ground_truth_docs(item)
 
             complexity, queries = self.query_processor.process(question)
             result = self.searcher.search(queries)
-            retrieved_doc_ids = [c.doc_id for c in result.chunks]
+            retrieved_doc_ids: list[str] = []
+            for chunk in result.chunks:
+                if chunk.doc_id not in retrieved_doc_ids:
+                    retrieved_doc_ids.append(chunk.doc_id)
 
             metrics: dict[str, float] = {}
             for k in k_values:
@@ -80,9 +69,18 @@ class Evaluator:
         from src.evaluation.metrics import mrr
 
         mrr_score = mrr(
-            [[c.doc_id for c in self.searcher.search(self.query_processor.process(item["question"])[1]).chunks]
-             for item in dataset],
-            [set(item.get("ground_truth_docs", [])) for item in dataset],
+            [
+                list(
+                    dict.fromkeys(
+                        c.doc_id
+                        for c in self.searcher.search(
+                            self.query_processor.process(item["question"])[1]
+                        ).chunks
+                    )
+                )
+                for item in dataset
+            ],
+            [ground_truth_docs(item) for item in dataset],
         )
 
         aggregated = aggregate_metrics(per_query)
