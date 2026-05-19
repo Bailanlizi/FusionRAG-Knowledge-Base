@@ -55,8 +55,11 @@ class Evaluator:
         k_values: list[int] | None = None,
     ) -> dict:
         k_values = k_values or [1, 5, 10]
-        # rerank_top_m = max(k_values, self.settings.retrieval.candidate_top_n) if self.use_reranker else None
-        rerank_top_m = max(max(k_values), self.settings.retrieval.candidate_top_n)
+        rerank_top_m = (
+            max(max(k_values), self.settings.retrieval.rerank_top_m)
+            if self.use_reranker
+            else None
+        )
         per_query: list[dict[str, float]] = []
         details: list[dict] = []
 

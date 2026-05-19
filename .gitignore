@@ -38,6 +38,7 @@ data/documents/*
 !data/documents/.gitkeep
 reports/*
 !reports/.gitkeep
+!reports/README.md
 
 # Logs
 logs/

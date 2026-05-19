@@ -15,7 +15,7 @@ FusionRAG Knowledge Base：基于 **稠密向量 + BM25 + RRF + Reranker** 的�
 | 初始化 DB | `scripts/init_db.py` |
 | 文档入库 | `scripts/run_ingest.py` → `src/ingestion/indexer.py` |
 | 问答 | `scripts/run_query.py` → `src/retrieval/generator.py` |
-| 检索评估 | `scripts/run_eval.py` → `src/evaluation/evaluator.py` |
+| 检索评估 | `scripts/run_eval.py` → `src/evaluation/evaluator.py`（`--with-reranker` 可选） |
 | 配置 | `config/settings.yaml` + `.env` |
 | Prompt | `config/prompts/multi_query.txt`, `generate.txt` |
 
@@ -26,11 +26,13 @@ FusionRAG Knowledge Base：基于 **稠密向量 + BM25 + RRF + Reranker** 的�
 3. **双写**：入库同时写 Milvus 与 PostgreSQL；改 schema 需同步 `src/utils/db.py`。
 4. **范围克制**：优先小 diff；不要顺手重构无关模块。
 5. **验证**：改完后在 Mock 下跑 `pytest`；涉及检索时可用 `run_eval.py` 对 `confluence_questions.jsonl` 抽样验证。
+6. **评估模式**：默认仅 RRF；`--with-reranker` 与 `run_query` 一致。报告：`eval_*.json` / `eval_rerank_*.json`。
 
 ## 评测数据
 
-- **主基准**：`data/documents/confluence/confluence_questions.jsonl`（64 题）
+- **主基准**：`data/documents/confluence/confluence_questions.jsonl`（64 题，132 篇文档）
 - **Smoke**：`data/eval_dataset/sample.json`（3 题）
+- **指标字段**：`expected_doc_ids` 或 `ground_truth_docs`（`src/evaluation/dataset.py`）
 
 ## Agent Skills
 

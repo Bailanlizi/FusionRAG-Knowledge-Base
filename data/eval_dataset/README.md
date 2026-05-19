@@ -33,10 +33,15 @@
 # Smoke（需已入库对应文档或使用 Mock）
 python scripts/run_eval.py --dataset data/eval_dataset/sample.json --k 1,5,10
 
-# Confluence 主基准（需先入库 confluence_markdown）
+# Confluence 主基准 — 仅 RRF
+python scripts/run_eval.py \
+  --dataset data/documents/confluence/confluence_questions.jsonl \
+  --k 1,5,10
+
+# Confluence 主基准 — RRF + Reranker
 python scripts/run_eval.py \
   --dataset data/documents/confluence/confluence_questions.jsonl \
   --k 1,5,10 --with-reranker
 ```
 
-报告输出至 `reports/`。
+报告输出至 `reports/`（`eval_*.json` 无 Reranker，`eval_rerank_*.json` 有 Reranker）。

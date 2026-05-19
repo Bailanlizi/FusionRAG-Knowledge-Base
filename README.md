@@ -9,8 +9,8 @@
 - **Fusion RAG 检索**：稠密向量 + BM25 稀疏检索，RRF 融合 + Qwen Reranker 重排
 - **自适应 Multi-Query**：按 SIMPLE / MODERATE / COMPLEX 动态生成 1 / 3 / 5 条子查询
 - **企业级文档解析**：Docling 基础解析 + PaddleOCR 可选增强（CPU 默认关闭）
-- **量化评估**：Recall@K、MRR、nDCG、Hit@K 自动化评估
-- **Confluence 基准集**：104 篇文档 + 64 条检索评测问答
+- **量化评估**：Recall@K、MRR、nDCG、Hit@K；支持无/有 Reranker 对比
+- **Confluence 基准集**：132 篇文档 + 64 条检索评测问答
 
 ## 环境要求
 
@@ -48,7 +48,7 @@ python scripts/init_db.py
 将 PDF/Markdown 放入 `data/documents/`，或使用内置 Confluence 基准集：
 
 ```bash
-# Confluence 基准（推荐）
+# Confluence 基准（推荐；doc_id 取自文件名 dsid_*）
 python scripts/run_ingest.py \
   --path data/documents/confluence/confluence_markdown \
   --init-db
@@ -67,7 +67,12 @@ python scripts/run_query.py --interactive
 ### 6. 检索评估
 
 ```bash
-# Confluence 主基准（64 题，推荐）
+# Confluence 主基准（64 题）— 仅 RRF 混合检索
+python scripts/run_eval.py \
+  --dataset data/documents/confluence/confluence_questions.jsonl \
+  --k 1,5,10
+
+# 同上 + Reranker（与 run_query 检索链一致）
 python scripts/run_eval.py \
   --dataset data/documents/confluence/confluence_questions.jsonl \
   --k 1,5,10 --with-reranker
@@ -76,7 +81,7 @@ python scripts/run_eval.py \
 python scripts/run_eval.py --dataset data/eval_dataset/sample.json --k 1,5,10
 ```
 
-报告输出至 `reports/`。
+报告输出至 `reports/`（`eval_*.json` 无 Reranker，`eval_rerank_*.json` 有 Reranker）。近期指标对比见 [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md)。
 
 ## Mock 开发模式
 
@@ -95,9 +100,9 @@ config/
   settings.yaml              # 模型、切分、检索、OCR 等
   prompts/                   # Multi-Query、生成 Prompt
 src/
-  ingestion/                 # 解析、切分、索引
+  ingestion/                 # 解析、切分、索引（含 dsid doc_id 解析）
   retrieval/                 # Multi-Query、混合检索、重排、生成
-  evaluation/                # 指标与评估流程
+  evaluation/                # 数据集加载、指标、评估流程
   utils/                     # 配置、DB、API 客户端
 scripts/                     # init_db, run_ingest, run_query, run_eval
 data/
@@ -106,7 +111,7 @@ data/
 docs/
   spec.md                    # 需求规格
   PROJECT_STATUS.md          # 项目现状（实现状态、评测结果）
-reports/                     # 评估 JSON 输出
+reports/                     # 评估 JSON 输出（gitignore）
 docker-compose.yml           # Milvus + PostgreSQL + 依赖
 ```
 
@@ -127,8 +132,16 @@ docker-compose.yml           # Milvus + PostgreSQL + 依赖
 | 组件 | 配置项 | 当前值 |
 |------|--------|--------|
 | Embedding | `models.embedding` | `text-embedding-v3`（1024 维） |
-| Reranker | `models.rerank` | `qwen3-vl-rerank` |
+| Reranker | `models.rerank` | `qwen3-rerank` |
 | LLM | `models.llm` | `deepseek-v4-flash` |
+
+### 检索（`retrieval` 段）
+
+| 配置项 | 当前值 | 说明 |
+|--------|--------|------|
+| `dense_top_k` / `sparse_top_k` | 10 | 单路检索候选数 |
+| `candidate_top_n` | 10 | RRF 融合后保留 chunk 数 |
+| `rerank_top_m` | 5 | 问答与 Rerank 评估返回条数上限 |
 
 ## OCR 说明（CPU 环境）
 
@@ -152,7 +165,7 @@ pytest
 | 组件 | 选型 |
 |------|------|
 | Embedding | text-embedding-v3（百炼，1024 维） |
-| Reranker | qwen3-vl-rerank（百炼） |
+| Reranker | qwen3-rerank（百炼） |
 | LLM | deepseek-v4-flash（百炼） |
 | 向量库 | Milvus 2.5 |
 | 元数据库 | PostgreSQL 15 |
