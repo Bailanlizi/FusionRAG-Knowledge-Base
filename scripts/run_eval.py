@@ -32,10 +32,15 @@ def main() -> None:
         default=str(get_settings().project_root / "reports"),
         help="Output directory for reports",
     )
+    parser.add_argument(
+        "--with-reranker",
+        action="store_true",
+        help="Rerank RRF candidates with ChunkReranker before computing metrics",
+    )
     args = parser.parse_args()
 
     k_values = [int(k.strip()) for k in args.k.split(",")]
-    evaluator = Evaluator()
+    evaluator = Evaluator(use_reranker=args.with_reranker)
     evaluator.run_and_save(args.dataset, args.output, k_values)
 
 

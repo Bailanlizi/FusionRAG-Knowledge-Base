@@ -15,15 +15,36 @@ from src.evaluation.metrics import (
 )
 from src.retrieval.hybrid_search import HybridSearcher
 from src.retrieval.query_processor import QueryProcessor
+from src.retrieval.reranker import ChunkReranker
 from src.utils.config import get_settings
 from src.utils.logger import logger
 
 
 class Evaluator:
-    def __init__(self) -> None:
+    def __init__(self, use_reranker: bool = False) -> None:
         self.settings = get_settings()
+        self.use_reranker = use_reranker
         self.searcher = HybridSearcher()
         self.query_processor = QueryProcessor()
+        self.reranker = ChunkReranker() if use_reranker else None
+
+    def _retrieve_doc_ids(
+        self,
+        question: str,
+        queries: list[str],
+        rerank_top_m: int | None = None,
+    ) -> list[str]:
+        result = self.searcher.search(queries)
+        chunks = result.chunks
+        if self.reranker:
+            top_m = rerank_top_m or self.settings.retrieval.rerank_top_m
+            chunks = self.reranker.rerank(question, chunks, top_m=top_m)
+
+        retrieved: list[str] = []
+        for chunk in chunks:
+            if chunk.doc_id and chunk.doc_id not in retrieved:
+                retrieved.append(chunk.doc_id)
+        return retrieved
 
     def load_dataset(self, path: str | Path) -> list[dict]:
         return load_dataset(path)
@@ -34,6 +55,8 @@ class Evaluator:
         k_values: list[int] | None = None,
     ) -> dict:
         k_values = k_values or [1, 5, 10]
+        # rerank_top_m = max(k_values, self.settings.retrieval.candidate_top_n) if self.use_reranker else None
+        rerank_top_m = max(max(k_values), self.settings.retrieval.candidate_top_n)
         per_query: list[dict[str, float]] = []
         details: list[dict] = []
 
@@ -42,11 +65,7 @@ class Evaluator:
             relevant = ground_truth_docs(item)
 
             complexity, queries = self.query_processor.process(question)
-            result = self.searcher.search(queries)
-            retrieved_doc_ids: list[str] = []
-            for chunk in result.chunks:
-                if chunk.doc_id not in retrieved_doc_ids:
-                    retrieved_doc_ids.append(chunk.doc_id)
+            retrieved_doc_ids = self._retrieve_doc_ids(question, queries, rerank_top_m=rerank_top_m)
 
             metrics: dict[str, float] = {}
             for k in k_values:
@@ -70,13 +89,10 @@ class Evaluator:
 
         mrr_score = mrr(
             [
-                list(
-                    dict.fromkeys(
-                        c.doc_id
-                        for c in self.searcher.search(
-                            self.query_processor.process(item["question"])[1]
-                        ).chunks
-                    )
+                self._retrieve_doc_ids(
+                    item["question"],
+                    self.query_processor.process(item["question"])[1],
+                    rerank_top_m=rerank_top_m,
                 )
                 for item in dataset
             ],
@@ -87,6 +103,7 @@ class Evaluator:
         aggregated["mrr"] = mrr_score
 
         return {
+            "use_reranker": self.use_reranker,
             "summary": aggregated,
             "per_query": details,
             "total": len(dataset),
@@ -100,13 +117,15 @@ class Evaluator:
         k_values: list[int] | None = None,
     ) -> Path:
         dataset = self.load_dataset(dataset_path)
-        logger.info("Evaluating %d questions", len(dataset))
+        mode = "with reranker" if self.use_reranker else "no reranker"
+        logger.info("Evaluating %d questions (%s)", len(dataset), mode)
         report = self.evaluate(dataset, k_values)
 
         out_dir = Path(output_dir or get_settings().project_root / "reports")
         out_dir.mkdir(parents=True, exist_ok=True)
         ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        out_path = out_dir / f"eval_{ts}.json"
+        prefix = "eval_rerank" if self.use_reranker else "eval"
+        out_path = out_dir / f"{prefix}_{ts}.json"
         out_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
 
         logger.info("Report saved to %s", out_path)
