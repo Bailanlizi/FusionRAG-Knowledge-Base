@@ -4,7 +4,7 @@
 
 ## 概述
 
-FusionRAG Knowledge Base 是一套 **CLI 形态** 的知识库问答系统，实现完整的 Fusion RAG 管线：文档入库 → 混合检索 →（可选）重排序 → 带引用生成。当前无 HTTP API 层。
+FusionRAG Knowledge Base 实现完整的 Fusion RAG 管线：文档入库 → 混合检索 → Reranker → 带引用生成。提供 **CLI** 与 **Web UI（v0.2）** 两种使用方式。
 
 ## 实现状态
 
@@ -19,7 +19,7 @@ FusionRAG Knowledge Base 是一套 **CLI 形态** 的知识库问答系统，实
 | 检索评估 | ✅ 可用 | `scripts/run_eval.py`，支持 JSON / JSONL，输出至 `reports/` |
 | Mock 模式 | ✅ 可用 | `USE_MOCK=true`，无 API Key 本地开发 |
 | 单元测试 | ✅ 可用 | `pytest`（7 个测试模块） |
-| HTTP API | ❌ 未实现 | 仅 CLI 入口 |
+| HTTP API + Web UI | ✅ 可用 | FastAPI `:8000` + React `:5173`（见 [spec-web.md](./spec-web.md)） |
 | CI/CD | ⚠️ 部分 | 仓库含 `.github/workflows/ci.yml`，本地以 Mock 测试为主 |
 
 ## 架构
@@ -27,6 +27,7 @@ FusionRAG Knowledge Base 是一套 **CLI 形态** 的知识库问答系统，实
 ```
 入库:  DocumentParser → SemanticChunker → Embedding → Milvus + PostgreSQL
 问答:  QueryProcessor → HybridSearcher → ChunkReranker → AnswerGenerator (LLM)
+Web:   FastAPI → ChatService / DocumentService → 同上内核
 评估:  QueryProcessor → HybridSearcher → [可选 ChunkReranker] → 文档级指标
 ```
 
@@ -51,11 +52,13 @@ src/
 ├── evaluation/    dataset.py, metrics.py, evaluator.py
 └── utils/         config.py, db.py, api_clients.py, logger.py
 
-scripts/           init_db.py, run_ingest.py, run_query.py, run_eval.py
+scripts/           init_db.py, run_ingest.py, run_query.py, run_eval.py, run_api.py
+web/               React 前端（Chat + Documents）
 config/            settings.yaml, prompts/
+src/api/           FastAPI 路由与服务层
 ```
 
-共 **22** 个 Python 源文件（`src/` 下）。
+共 **22+** 个 Python 源文件（`src/` 核心）+ `src/api/` Web 层。
 
 ## 数据资产
 
@@ -130,10 +133,18 @@ python scripts/run_eval.py \
 
 ## 已知缺口与后续方向
 
-1. **无对外 HTTP API** — 如需集成，可加 FastAPI 薄封装层。
-2. **生成质量评测** — 当前仅检索指标；`gold_answer` 尚未用于答案准确率评估。
-3. **评估 MRR 重复检索** — 每题检索执行两次，大基准集上可优化耗时。
+1. **生成质量评测** — 当前仅检索指标；`gold_answer` 尚未用于答案准确率评估。
+2. **评估 MRR 重复检索** — 每题检索执行两次，大基准集上可优化耗时。
+3. **Web 流式输出** — 当前为同步生成，未实现 SSE。
 4. **`volumes/`、`logs/`、`reports/*.json`** — 已在 `.gitignore` 中排除，勿提交运行时数据。
+
+## Web 启动
+
+```bash
+python scripts/init_db.py
+python scripts/run_api.py          # http://localhost:8000/docs
+cd web && npm install && npm run dev   # http://localhost:5173
+```
 
 ## 相关文档
 

@@ -36,6 +36,8 @@ ENV/
 # Data & reports
 data/documents/*
 !data/documents/.gitkeep
+!data/documents/uploads/
+!data/documents/uploads/.gitkeep
 reports/*
 !reports/.gitkeep
 !reports/README.md

@@ -46,11 +46,11 @@
 - [x] Multi-Query 按复杂度动态生成查询
 - [x] `run_eval.py` 输出检索指标
 - [x] `pytest` 全部通过（mock 模式）
-- [ ] HTTP API 层（未规划实现）
+- [x] HTTP API + Web UI（v0.2，见 [spec-web.md](./spec-web.md)）
 - [ ] CI/CD 自动化（未实现）
 
-## 5. Out of Scope (v0.1)
+## 5. Out of Scope
 
-- Web UI / REST API
 - 生成质量自动评测（仅检索指标已落地）
 - 多租户与权限体系
+- 流式输出、生产级部署（见 spec-web.md）

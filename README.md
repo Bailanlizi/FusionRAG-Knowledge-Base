@@ -11,10 +11,12 @@
 - **企业级文档解析**：Docling 基础解析 + PaddleOCR 可选增强（CPU 默认关闭）
 - **量化评估**：Recall@K、MRR、nDCG、Hit@K；支持无/有 Reranker 对比
 - **Confluence 基准集**：132 篇文档 + 64 条检索评测问答
+- **Web UI（v0.2）**：多轮对话 + 文档管理（FastAPI + React）
 
 ## 环境要求
 
 - Python 3.10+
+- Node.js 18+（Web 前端）
 - Docker Desktop（Milvus 2.5 + PostgreSQL 15）
 - 阿里云百炼 DashScope API Key（或 `USE_MOCK=true` 本地开发）
 
@@ -57,14 +59,28 @@ python scripts/run_ingest.py \
 python scripts/run_ingest.py --path data/documents --init-db
 ```
 
-### 5. 问答查询
+### 5. Web 界面（推荐）
+
+```bash
+# 终端 1：API（:8000，Swagger 见 /docs）
+python scripts/run_api.py
+
+# 终端 2：前端（:5173）
+cd web
+npm install
+npm run dev
+```
+
+浏览器打开 http://localhost:5173 — **对话** 与 **文档管理** 两个 Tab。
+
+### 6. CLI 问答
 
 ```bash
 python scripts/run_query.py "What is the default contractor access expiry period?"
 python scripts/run_query.py --interactive
 ```
 
-### 6. 检索评估
+### 7. 检索评估
 
 ```bash
 # Confluence 主基准（64 题）— 仅 RRF 混合检索
@@ -104,7 +120,8 @@ src/
   retrieval/                 # Multi-Query、混合检索、重排、生成
   evaluation/                # 数据集加载、指标、评估流程
   utils/                     # 配置、DB、API 客户端
-scripts/                     # init_db, run_ingest, run_query, run_eval
+scripts/                     # init_db, run_ingest, run_query, run_eval, run_api
+web/                         # React + Vite 前端
 data/
   documents/confluence/      # 基准文档 + 评测问答（见各目录 README）
   eval_dataset/              # sample.json smoke 集
@@ -177,6 +194,7 @@ pytest
 |------|------|
 | [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md) | 实现状态、架构、评测结果、已知缺口 |
 | [docs/spec.md](docs/spec.md) | 需求规格与成功标准 |
+| [docs/spec-web.md](docs/spec-web.md) | Web/API v0.2 规格 |
 | [AGENTS.md](AGENTS.md) | Agent 修改指引 |
 | [data/documents/confluence/README.md](data/documents/confluence/README.md) | Confluence 基准数据说明 |
 | [data/eval_dataset/README.md](data/eval_dataset/README.md) | 评估数据集格式 |

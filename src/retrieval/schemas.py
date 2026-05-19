@@ -36,3 +36,19 @@ class AnswerResult(BaseModel):
     sources: list[dict] = Field(default_factory=list)
     queries: list[str] = Field(default_factory=list)
     complexity: str = "SIMPLE"
+
+
+class GenerationTrace(BaseModel):
+    complexity: str = "SIMPLE"
+    queries: list[str] = Field(default_factory=list)
+    retrieval_ms: float = 0.0
+    rerank_ms: float = 0.0
+    llm_ms: float = 0.0
+    chunk_count: int = 0
+
+
+class DetailedAnswerResult(BaseModel):
+    question: str
+    answer: str
+    sources: list[dict] = Field(default_factory=list)
+    trace: GenerationTrace = Field(default_factory=GenerationTrace)

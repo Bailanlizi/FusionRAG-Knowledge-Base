@@ -16,6 +16,8 @@ FusionRAG Knowledge Base：基于 **稠密向量 + BM25 + RRF + Reranker** 的�
 | 文档入库 | `scripts/run_ingest.py` → `src/ingestion/indexer.py` |
 | 问答 | `scripts/run_query.py` → `src/retrieval/generator.py` |
 | 检索评估 | `scripts/run_eval.py` → `src/evaluation/evaluator.py`（`--with-reranker` 可选） |
+| Web API | `scripts/run_api.py` → `src/api/main.py` |
+| Web 前端 | `web/`（`npm run dev`，代理 `/api` → :8000） |
 | 配置 | `config/settings.yaml` + `.env` |
 | Prompt | `config/prompts/multi_query.txt`, `generate.txt` |
 

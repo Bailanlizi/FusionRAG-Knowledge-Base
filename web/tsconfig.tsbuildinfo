@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/api/client.ts","./src/api/types.ts","./src/components/chat/chunkdrawer.tsx","./src/components/chat/markdownmessage.tsx","./src/components/chat/sourcelist.tsx","./src/components/chat/tracepanel.tsx","./src/layouts/appshell.tsx","./src/pages/chatpage.tsx","./src/pages/documentspage.tsx"],"version":"5.9.3"}
