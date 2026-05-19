@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
-import type { MessageItem } from "../api/types";
+import type { ConversationDetail, MessageItem } from "../api/types";
 import ChunkDrawer from "../components/chat/ChunkDrawer";
 import MarkdownMessage from "../components/chat/MarkdownMessage";
 import SourceList from "../components/chat/SourceList";
@@ -19,7 +19,7 @@ export default function ChatPage() {
     queryFn: api.listConversations,
   });
 
-  const { data: conversation, refetch: refetchConv } = useQuery({
+  const { data: conversation } = useQuery({
     queryKey: ["conversation", activeId],
     queryFn: () => api.getConversation(activeId!),
     enabled: !!activeId,
@@ -28,10 +28,6 @@ export default function ChatPage() {
   useEffect(() => {
     if (!activeId && conversations.length) setActiveId(conversations[0].id);
   }, [conversations, activeId]);
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [conversation?.messages]);
 
   const createMut = useMutation({
     mutationFn: () => api.createConversation(),
@@ -52,16 +48,59 @@ export default function ChatPage() {
   const sendMut = useMutation({
     mutationFn: (payload: { content: string; regenerate?: boolean; target_message_id?: string }) =>
       api.sendMessage(activeId!, payload),
-    onSuccess: () => {
-      refetchConv();
+    onMutate: async (payload) => {
+      const convId = activeId;
+      if (!convId) return;
+
+      await qc.cancelQueries({ queryKey: ["conversation", convId] });
+      const previous = qc.getQueryData<ConversationDetail>(["conversation", convId]);
+
+      if (!payload.regenerate && payload.content.trim()) {
+        const optimisticUser: MessageItem = {
+          id: `optimistic-user-${Date.now()}`,
+          role: "user",
+          content: payload.content.trim(),
+          sources: [],
+          created_at: new Date().toISOString(),
+        };
+        qc.setQueryData<ConversationDetail>(["conversation", convId], (old) => {
+          if (!old) {
+            return {
+              id: convId,
+              title: "新对话",
+              created_at: optimisticUser.created_at,
+              updated_at: optimisticUser.created_at,
+              messages: [optimisticUser],
+            };
+          }
+          return { ...old, messages: [...old.messages, optimisticUser] };
+        });
+      }
+
+      return { previous, convId };
+    },
+    onError: (_err, _payload, context) => {
+      if (context?.previous !== undefined && context.convId) {
+        qc.setQueryData(["conversation", context.convId], context.previous);
+      }
+    },
+    onSettled: (_data, _err, _payload, context) => {
+      if (context?.convId) {
+        qc.invalidateQueries({ queryKey: ["conversation", context.convId] });
+      }
       qc.invalidateQueries({ queryKey: ["conversations"] });
-      setInput("");
     },
   });
 
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [conversation?.messages, sendMut.isPending]);
+
   const handleSend = () => {
     if (!activeId || !input.trim() || sendMut.isPending) return;
-    sendMut.mutate({ content: input.trim() });
+    const content = input.trim();
+    setInput("");
+    sendMut.mutate({ content });
   };
 
   const handleRegenerate = (msg: MessageItem) => {
@@ -159,7 +198,11 @@ export default function ChatPage() {
                 </div>
               ))}
               {sendMut.isPending && (
-                <p className="text-sm text-slate-500 animate-pulse">Retrieving and generating...</p>
+                <div className="flex justify-start">
+                  <div className="max-w-[85%] rounded-2xl px-4 py-3 bg-white border border-slate-200 shadow-sm">
+                    <p className="text-sm text-slate-500 animate-pulse">正在检索并生成…</p>
+                  </div>
+                </div>
               )}
               <div ref={bottomRef} />
             </div>
