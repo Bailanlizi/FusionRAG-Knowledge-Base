@@ -4,7 +4,7 @@
 
 ## 项目是什么
 
-FusionRAG Knowledge Base：基于 **稠密向量 + BM25 + RRF + Reranker** 的企业知识库 RAG 系统，CLI 驱动，依赖 Milvus + PostgreSQL + 百炼 DashScope API。
+FusionRAG Knowledge Base：基于 **稠密向量 + BM25 + RRF + Reranker** 的企业知识库 RAG 系统，提供 CLI 与 Web（FastAPI + React），依赖 Milvus + PostgreSQL + 百炼 DashScope API。
 
 详细现状见 [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md)。
 
@@ -19,7 +19,7 @@ FusionRAG Knowledge Base：基于 **稠密向量 + BM25 + RRF + Reranker** 的�
 | Web API | `scripts/run_api.py` → `src/api/main.py` |
 | Web 前端 | `web/`（`npm run dev`，代理 `/api` → :8000） |
 | 配置 | `config/settings.yaml` + `.env` |
-| Prompt | `config/prompts/multi_query.txt`, `generate.txt` |
+| Prompt | `config/prompts/multi_query.txt`, `query_rewrite.txt`, `generate.txt` |
 
 ## 修改时注意
 
@@ -28,7 +28,8 @@ FusionRAG Knowledge Base：基于 **稠密向量 + BM25 + RRF + Reranker** 的�
 3. **双写**：入库同时写 Milvus 与 PostgreSQL；改 schema 需同步 `src/utils/db.py`。
 4. **范围克制**：优先小 diff；不要顺手重构无关模块。
 5. **验证**：改完后在 Mock 下跑 `pytest`；涉及检索时可用 `run_eval.py` 对 `confluence_questions.jsonl` 抽样验证。
-6. **评估模式**：默认仅 RRF；`--with-reranker` 与 `run_query` 一致。报告：`eval_*.json` / `eval_rerank_*.json`。
+6. **评估模式**：默认仅 RRF；`--with-reranker` 与 `run_query` / Web 对话的 Rerank 链一致。报告：`eval_*.json` / `eval_rerank_*.json`。
+7. **Web 多轮**：`ChatService` 传历史 → `QueryRewriter` → `AnswerGenerator`；`run_query` 无历史，单轮 only。
 
 ## 评测数据
 

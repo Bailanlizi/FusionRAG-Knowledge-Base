@@ -11,7 +11,7 @@
 - **企业级文档解析**：Docling 基础解析 + PaddleOCR 可选增强（CPU 默认关闭）
 - **量化评估**：Recall@K、MRR、nDCG、Hit@K；支持无/有 Reranker 对比
 - **Confluence 基准集**：132 篇文档 + 64 条检索评测问答
-- **Web UI（v0.2）**：多轮对话 + 文档管理（FastAPI + React）
+- **Web UI（v0.2）**：多轮 RAG 对话（Query Rewrite）+ 文档管理（FastAPI + React）
 
 ## 环境要求
 
@@ -114,10 +114,11 @@ Mock 模式使用确定性假向量与关键词重排，适合本地开发与单
 ```
 config/
   settings.yaml              # 模型、切分、检索、OCR 等
-  prompts/                   # Multi-Query、生成 Prompt
+  prompts/                   # Multi-Query、Query Rewrite、生成 Prompt
 src/
   ingestion/                 # 解析、切分、索引（含 dsid doc_id 解析）
-  retrieval/                 # Multi-Query、混合检索、重排、生成
+  retrieval/                 # Query Rewrite、Multi-Query、混合检索、重排、生成
+  api/                       # FastAPI 路由与服务（对话、文档）
   evaluation/                # 数据集加载、指标、评估流程
   utils/                     # 配置、DB、API 客户端
 scripts/                     # init_db, run_ingest, run_query, run_eval, run_api
@@ -159,6 +160,13 @@ docker-compose.yml           # Milvus + PostgreSQL + 依赖
 | `dense_top_k` / `sparse_top_k` | 10 | 单路检索候选数 |
 | `candidate_top_n` | 10 | RRF 融合后保留 chunk 数 |
 | `rerank_top_m` | 5 | 问答与 Rerank 评估返回条数上限 |
+
+### 多轮对话（`chat` 段，Web/API）
+
+| 配置项 | 当前值 | 说明 |
+|--------|--------|------|
+| `max_history_turns` | 6 | 参与改写的最近消息轮数 |
+| `max_assistant_chars` | 400 | 历史中助手回复截断长度 |
 
 ## OCR 说明（CPU 环境）
 

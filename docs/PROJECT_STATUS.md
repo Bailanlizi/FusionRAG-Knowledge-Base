@@ -1,10 +1,12 @@
 # 项目现状
 
-> 最后更新：2026-05-19
+> 最后更新：2026-05-20
 
 ## 概述
 
 FusionRAG Knowledge Base 实现完整的 Fusion RAG 管线：文档入库 → 混合检索 → Reranker → 带引用生成。提供 **CLI** 与 **Web UI（v0.2）** 两种使用方式。
+
+Web 对话已支持 **多轮 RAG**（Query Rewrite + 历史截断）与 **乐观 UI**（发送即显示用户消息）；CLI `run_query` 仍为单轮问答。
 
 ## 实现状态
 
@@ -14,19 +16,29 @@ FusionRAG Knowledge Base 实现完整的 Fusion RAG 管线：文档入库 → �
 | 文档入库 | ✅ 可用 | `scripts/run_ingest.py`，支持 PDF / MD / TXT |
 | 混合检索 | ✅ 可用 | 稠密向量 + BM25 → RRF 融合 |
 | Multi-Query | ✅ 可用 | SIMPLE / MODERATE / COMPLEX → 1 / 3 / 5 条子查询 |
-| Reranker | ✅ 可用 | 问答（`run_query`）与评估（`--with-reranker`）均可启用 |
-| 答案生成 | ✅ 可用 | `scripts/run_query.py`（单次 / 交互） |
+| Query Rewrite（多轮） | ✅ 可用 | Web/API 对话：历史 → 独立检索问句 → 再走 Multi-Query |
+| Reranker | ✅ 可用 | 问答与 Web 对话**始终**启用；评估默认关闭，`--with-reranker` 开启 |
+| 答案生成 | ✅ 可用 | `scripts/run_query.py`（单次 / 交互，单轮） |
 | 检索评估 | ✅ 可用 | `scripts/run_eval.py`，支持 JSON / JSONL，输出至 `reports/` |
 | Mock 模式 | ✅ 可用 | `USE_MOCK=true`，无 API Key 本地开发 |
-| 单元测试 | ✅ 可用 | `pytest`（7 个测试模块） |
+| 单元测试 | ✅ 可用 | `pytest`（9 个测试模块，含 `test_query_rewriter`） |
 | HTTP API + Web UI | ✅ 可用 | FastAPI `:8000` + React `:5173`（见 [spec-web.md](./spec-web.md)） |
+| Web 对话 UX | ✅ 可用 | 发送即清空输入、乐观显示用户气泡、加载态、Trace 展示改写查询 |
 | CI/CD | ⚠️ 部分 | 仓库含 `.github/workflows/ci.yml`，本地以 Mock 测试为主 |
 
 ## 架构
 
 ```
 入库:  DocumentParser → SemanticChunker → Embedding → Milvus + PostgreSQL
-问答:  QueryProcessor → HybridSearcher → ChunkReranker → AnswerGenerator (LLM)
+
+问答 (CLI):
+  QueryProcessor → HybridSearcher → ChunkReranker → AnswerGenerator (LLM)
+
+问答 (Web 多轮):
+  会话历史 → QueryRewriter → standalone_query
+           → QueryProcessor → HybridSearcher → ChunkReranker → AnswerGenerator
+  （生成阶段仍使用用户「当前原句」；检索/Rerank 使用改写后的问句）
+
 Web:   FastAPI → ChatService / DocumentService → 同上内核
 评估:  QueryProcessor → HybridSearcher → [可选 ChunkReranker] → 文档级指标
 ```
@@ -36,7 +48,7 @@ Web:   FastAPI → ChatService / DocumentService → 同上内核
 | 存储 | 职责 |
 |------|------|
 | **Milvus** | 稠密向量检索、BM25 稀疏检索、chunk 向量与稀疏字段 |
-| **PostgreSQL** | 文档元数据（`documents`）、chunk 正文与元信息（`chunks`） |
+| **PostgreSQL** | 文档元数据（`documents`）、chunk 正文（`chunks`）、会话（`conversations` / `messages`） |
 
 ### 文档 ID 约定
 
@@ -47,18 +59,28 @@ Confluence 导出文件名为 `dsid_<hex32>__<slug>.md`。`parser.resolve_doc_id
 ```
 src/
 ├── ingestion/     parser.py, chunker.py, indexer.py, models.py
-├── retrieval/     query_processor.py, hybrid_search.py, rrf.py,
-│                  reranker.py, generator.py, schemas.py
+├── retrieval/     query_rewriter.py, query_processor.py, hybrid_search.py,
+│                  rrf.py, reranker.py, generator.py, schemas.py
 ├── evaluation/    dataset.py, metrics.py, evaluator.py
+├── api/           main.py, routers/, services/ (chat, document)
 └── utils/         config.py, db.py, api_clients.py, logger.py
 
 scripts/           init_db.py, run_ingest.py, run_query.py, run_eval.py, run_api.py
 web/               React 前端（Chat + Documents）
-config/            settings.yaml, prompts/
-src/api/           FastAPI 路由与服务层
+config/            settings.yaml, prompts/ (multi_query, query_rewrite, generate)
 ```
 
-共 **22+** 个 Python 源文件（`src/` 核心）+ `src/api/` Web 层。
+共 **25+** 个 Python 源文件（`src/` 核心 + `src/api/`）。
+
+## Web 功能摘要（v0.2）
+
+| 能力 | 说明 |
+|------|------|
+| 对话 | 多轮会话持久化；Markdown 回答；引用折叠；Chunk 抽屉；Trace（含改写查询） |
+| 多轮 RAG | `QueryRewriter` + 最近 N 轮历史（`chat.max_history_turns`） |
+| 文档管理 | 统计、列表筛选、上传即入库、删除、预览 |
+| 上传 | `POST /api/documents/upload` → 同步 `index_file()` |
+| 非目标 | SSE 流式、鉴权、生成质量自动评测 |
 
 ## 数据资产
 
@@ -101,12 +123,10 @@ python scripts/run_ingest.py \
 复现：
 
 ```bash
-# 仅 RRF（与混合检索阶段一致，不含 Rerank）
 python scripts/run_eval.py \
   --dataset data/documents/confluence/confluence_questions.jsonl \
   --k 1,5,10
 
-# RRF + Reranker（与线上问答检索链一致）
 python scripts/run_eval.py \
   --dataset data/documents/confluence/confluence_questions.jsonl \
   --k 1,5,10 --with-reranker
@@ -117,6 +137,7 @@ python scripts/run_eval.py \
 - 指标在 **文档级** `doc_id` 上计算（同一文档多个 chunk 去重）。
 - `ground_truth_docs` 与 `expected_doc_ids` 均支持（见 `src/evaluation/dataset.py`）。
 - 带 Reranker 时每题调用百炼 Rerank API，耗时与 token 消耗显著高于无 Reranker 模式。
+- **多轮 Query Rewrite 未纳入检索评估**（评测仍为单轮问句）。
 
 ## 配置与模型（`config/settings.yaml`）
 
@@ -127,6 +148,7 @@ python scripts/run_eval.py \
 | LLM | `models.llm` | `deepseek-v4-flash` |
 | 检索 | `retrieval.*` | dense/sparse top_k=10，candidate_top_n=10，RRF k=60，rerank_top_m=5 |
 | Multi-Query | `multi_query.*` | SIMPLE=1，MODERATE=3，COMPLEX=5 |
+| 多轮对话 | `chat.*` | max_history_turns=6，max_assistant_chars=400 |
 | OCR | `ocr.enabled` | `false`（CPU 环境默认关闭） |
 
 环境变量见 `.env.example`。
@@ -134,13 +156,16 @@ python scripts/run_eval.py \
 ## 已知缺口与后续方向
 
 1. **生成质量评测** — 当前仅检索指标；`gold_answer` 尚未用于答案准确率评估。
-2. **评估 MRR 重复检索** — 每题检索执行两次，大基准集上可优化耗时。
-3. **Web 流式输出** — 当前为同步生成，未实现 SSE。
-4. **`volumes/`、`logs/`、`reports/*.json`** — 已在 `.gitignore` 中排除，勿提交运行时数据。
+2. **生成阶段未带对话历史** — 改写仅用于检索；复杂指代在生成 prompt 中仍可能不足（可扩展 `generate.txt`）。
+3. **评估 MRR 重复检索** — 每题检索执行两次，大基准集上可优化耗时。
+4. **Web 流式输出** — 当前为同步生成，未实现 SSE。
+5. **大文件上传** — Web 上传为同步 `index_file`，大 PDF 可能长时间阻塞请求。
+6. **`volumes/`、`logs/`、`reports/*.json`** — 已在 `.gitignore` 中排除，勿提交运行时数据。
 
 ## Web 启动
 
 ```bash
+docker compose up -d
 python scripts/init_db.py
 python scripts/run_api.py          # http://localhost:8000/docs
 cd web && npm install && npm run dev   # http://localhost:5173
@@ -149,6 +174,7 @@ cd web && npm install && npm run dev   # http://localhost:5173
 ## 相关文档
 
 - [spec.md](./spec.md) — 需求与成功标准
+- [spec-web.md](./spec-web.md) — Web/API v0.2 规格
 - [../README.md](../README.md) — 快速开始与使用说明
 - [../AGENTS.md](../AGENTS.md) — Cursor Agent 工作指引
 - [../data/documents/confluence/README.md](../data/documents/confluence/README.md) — Confluence 基准说明

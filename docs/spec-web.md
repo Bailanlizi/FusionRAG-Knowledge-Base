@@ -68,6 +68,10 @@ Response (assistant message):
   "trace": {
     "complexity": "SIMPLE",
     "queries": ["..."],
+    "original_question": "第二步呢？",
+    "standalone_query": "Milvus docker compose 部署的第二步具体命令是什么？",
+    "is_follow_up": true,
+    "rewrite_ms": 420,
     "retrieval_ms": 320,
     "rerank_ms": 180,
     "llm_ms": 2100,
@@ -102,13 +106,20 @@ Response (assistant message):
 /documents — StatsCards | Filters | Table | Upload | PreviewDrawer
 ```
 
-## 7. Acceptance Criteria
+## 7. Multi-turn RAG (v0.2+)
 
-- [ ] Swagger `/docs` accessible
-- [ ] Documents: stats, upload PDF/MD, delete, preview, filter by source_type
-- [ ] Chat: multi-turn, markdown, sources (collapse 3+), chunk drawer, copy, regenerate, trace panel
-- [ ] `USE_MOCK=true` API tests pass; `npm run build` succeeds
+Before retrieval, `QueryRewriter` turns the latest user utterance + recent history into a **standalone_query** (see `config/prompts/query_rewrite.txt`). Multi-Query, hybrid search, and rerank use `standalone_query`; generation prompt still uses the user's raw last message.
 
-## 8. Relation to CLI
+Config: `chat.max_history_turns`, `chat.max_assistant_chars` in `settings.yaml`.
 
-CLI scripts (`run_ingest`, `run_query`, `run_eval`) remain; Web is additive via `run_api.py`.
+## 8. Acceptance Criteria
+
+- [x] Swagger `/docs` accessible
+- [x] Documents: stats, upload PDF/MD, delete, preview, filter by source_type
+- [x] Chat: multi-turn RAG, markdown, sources (collapse 3+), chunk drawer, copy, regenerate, trace panel
+- [x] Chat UX: optimistic user message on send, loading state while generating
+- [x] `USE_MOCK=true` API tests pass; `npm run build` succeeds
+
+## 9. Relation to CLI
+
+CLI scripts (`run_ingest`, `run_query`, `run_eval`) remain; Web is additive via `run_api.py`. `run_query` does not use `QueryRewriter` (single-turn only).
