@@ -17,8 +17,14 @@ def main() -> None:
     parser.add_argument(
         "--dataset",
         type=str,
-        default=str(get_settings().project_root / "data" / "eval_dataset" / "sample.json"),
-        help="Path to eval JSON file or directory",
+        default=str(
+            get_settings().project_root
+            / "data"
+            / "documents"
+            / "confluence"
+            / "confluence_questions.jsonl"
+        ),
+        help="Path to eval JSON/JSONL file or directory (default: Confluence benchmark)",
     )
     parser.add_argument(
         "--k",

@@ -12,10 +12,10 @@ chunking:
   merge_short_chunks: true
 
 retrieval:
-  dense_top_k: 20
-  sparse_top_k: 20
+  dense_top_k: 10
+  sparse_top_k: 10
   rrf_k: 60
-  candidate_top_n: 20
+  candidate_top_n: 10
   rerank_top_m: 5
 
 multi_query:

@@ -2,18 +2,21 @@
 
 基于 Fusion RAG 架构的个人/企业知识库问答系统。融合 BM25 关键词检索与语义向量检索，支持自适应 Multi-Query、Qwen Reranker 重排序，以及 Docling 文档解析。
 
+> 项目现状与架构细节见 [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md)。Cursor Agent 请参阅 [AGENTS.md](AGENTS.md)。
+
 ## 功能特性
 
 - **Fusion RAG 检索**：稠密向量 + BM25 稀疏检索，RRF 融合 + Qwen Reranker 重排
-- **自适应 Multi-Query**：按 SIMPLE / MODERATE / COMPLEX 动态生成 1–5 条子查询
+- **自适应 Multi-Query**：按 SIMPLE / MODERATE / COMPLEX 动态生成 1 / 3 / 5 条子查询
 - **企业级文档解析**：Docling 基础解析 + PaddleOCR 可选增强（CPU 默认关闭）
 - **量化评估**：Recall@K、MRR、nDCG、Hit@K 自动化评估
+- **Confluence 基准集**：104 篇文档 + 64 条检索评测问答
 
 ## 环境要求
 
 - Python 3.10+
 - Docker Desktop（Milvus 2.5 + PostgreSQL 15）
-- 阿里云百炼 DashScope API Key
+- 阿里云百炼 DashScope API Key（或 `USE_MOCK=true` 本地开发）
 
 ## 快速开始
 
@@ -42,24 +45,38 @@ python scripts/init_db.py
 
 ### 4. 文档入库
 
-将 PDF/Markdown 放入 `data/documents/`，然后：
+将 PDF/Markdown 放入 `data/documents/`，或使用内置 Confluence 基准集：
 
 ```bash
+# Confluence 基准（推荐）
+python scripts/run_ingest.py \
+  --path data/documents/confluence/confluence_markdown \
+  --init-db
+
+# 或任意目录
 python scripts/run_ingest.py --path data/documents --init-db
 ```
 
 ### 5. 问答查询
 
 ```bash
-python scripts/run_query.py "FusionRAG 的核心检索策略是什么？"
+python scripts/run_query.py "What is the default contractor access expiry period?"
 python scripts/run_query.py --interactive
 ```
 
 ### 6. 检索评估
 
 ```bash
+# Confluence 主基准（64 题，推荐）
+python scripts/run_eval.py \
+  --dataset data/documents/confluence/confluence_questions.jsonl \
+  --k 1,5,10 --with-reranker
+
+# 快速 smoke test（3 题）
 python scripts/run_eval.py --dataset data/eval_dataset/sample.json --k 1,5,10
 ```
+
+报告输出至 `reports/`。
 
 ## Mock 开发模式
 
@@ -74,17 +91,28 @@ Mock 模式使用确定性假向量与关键词重排，适合本地开发与单
 ## 项目结构
 
 ```
-config/settings.yaml      # 应用配置
-src/ingestion/            # 文档解析、切分、索引
-src/retrieval/            # 检索、重排、生成
-src/evaluation/           # 评估指标与流程
-src/utils/                # 配置、DB、API 客户端
-scripts/                  # CLI 入口
-data/documents/           # 待索引文档
-data/eval_dataset/        # 评估数据集
+config/
+  settings.yaml              # 模型、切分、检索、OCR 等
+  prompts/                   # Multi-Query、生成 Prompt
+src/
+  ingestion/                 # 解析、切分、索引
+  retrieval/                 # Multi-Query、混合检索、重排、生成
+  evaluation/                # 指标与评估流程
+  utils/                     # 配置、DB、API 客户端
+scripts/                     # init_db, run_ingest, run_query, run_eval
+data/
+  documents/confluence/      # 基准文档 + 评测问答（见各目录 README）
+  eval_dataset/              # sample.json smoke 集
+docs/
+  spec.md                    # 需求规格
+  PROJECT_STATUS.md          # 项目现状（实现状态、评测结果）
+reports/                     # 评估 JSON 输出
+docker-compose.yml           # Milvus + PostgreSQL + 依赖
 ```
 
 ## 配置说明
+
+### 环境变量
 
 | 环境变量 | 说明 | 默认值 |
 |----------|------|--------|
@@ -94,9 +122,17 @@ data/eval_dataset/        # 评估数据集
 | `POSTGRES_URL` | PostgreSQL 连接串 | postgresql://fusion:fusion@localhost:5432/fusion_rag |
 | `USE_MOCK` | Mock 模式 | false |
 
+### 模型（`config/settings.yaml`）
+
+| 组件 | 配置项 | 当前值 |
+|------|--------|--------|
+| Embedding | `models.embedding` | `text-embedding-v3`（1024 维） |
+| Reranker | `models.rerank` | `qwen3-vl-rerank` |
+| LLM | `models.llm` | `deepseek-v4-flash` |
+
 ## OCR 说明（CPU 环境）
 
-PaddleOCR 在 CPU 上较慢，默认在 `config/settings.yaml` 中 `ocr.enabled: false`。如需启用：
+PaddleOCR 在 CPU 上较慢，默认 `ocr.enabled: false`。如需启用：
 
 ```yaml
 ocr:
@@ -115,12 +151,22 @@ pytest
 
 | 组件 | 选型 |
 |------|------|
-| Embedding | Qwen3-VL-Embedding (1024维) |
-| Reranker | Qwen3-VL-Rerank |
-| LLM | DeepSeek V4 Flash |
+| Embedding | text-embedding-v3（百炼，1024 维） |
+| Reranker | qwen3-vl-rerank（百炼） |
+| LLM | deepseek-v4-flash（百炼） |
 | 向量库 | Milvus 2.5 |
 | 元数据库 | PostgreSQL 15 |
 | 框架 | LlamaIndex + 自研检索管线 |
+
+## 文档索引
+
+| 文档 | 内容 |
+|------|------|
+| [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md) | 实现状态、架构、评测结果、已知缺口 |
+| [docs/spec.md](docs/spec.md) | 需求规格与成功标准 |
+| [AGENTS.md](AGENTS.md) | Agent 修改指引 |
+| [data/documents/confluence/README.md](data/documents/confluence/README.md) | Confluence 基准数据说明 |
+| [data/eval_dataset/README.md](data/eval_dataset/README.md) | 评估数据集格式 |
 
 ## 许可证
 
