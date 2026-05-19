@@ -29,7 +29,7 @@ ocr:
   complexity_threshold: 0.5
 
 ingest:
-  batch_size: 16
+  batch_size: 8
   max_retries: 3
 
 milvus:
