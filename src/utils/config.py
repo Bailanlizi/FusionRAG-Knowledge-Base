@@ -51,6 +51,11 @@ class MultiQueryConfig(BaseSettings):
     complex: int = 5
 
 
+class ChatConfig(BaseSettings):
+    max_history_turns: int = 6
+    max_assistant_chars: int = 400
+
+
 class OcrConfig(BaseSettings):
     enabled: bool = False
     timeout_seconds: int = 120
@@ -103,6 +108,7 @@ class Settings:
         self.chunking = ChunkingConfig(**raw.get("chunking", {}))
         self.retrieval = RetrievalConfig(**raw.get("retrieval", {}))
         self.multi_query = MultiQueryConfig(**raw.get("multi_query", {}))
+        self.chat = ChatConfig(**raw.get("chat", {}))
         self.ocr = OcrConfig(**raw.get("ocr", {}))
         self.ingest = IngestConfig(**raw.get("ingest", {}))
         self.milvus = MilvusConfig(**raw.get("milvus", {}))

@@ -56,6 +56,15 @@ def test_conversation_flow(client: TestClient):
     assert r3.status_code == 200
     assert len(r3.json()["messages"]) >= 2
 
+    r4 = client.post(
+        f"/api/conversations/{conv_id}/messages",
+        json={"content": "第二步具体命令是什么？"},
+    )
+    assert r4.status_code == 200
+    trace = r4.json()["trace"]
+    assert "standalone_query" in trace
+    assert trace.get("is_follow_up") is True
+
     client.delete(f"/api/conversations/{conv_id}")
 
 

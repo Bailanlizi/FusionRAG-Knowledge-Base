@@ -17,6 +17,7 @@ from src.api.schemas import (
     TraceInfo,
 )
 from src.retrieval.generator import AnswerGenerator
+from src.retrieval.schemas import ChatTurn
 from src.utils.db import PostgresClient
 
 
@@ -85,7 +86,10 @@ class ChatService:
         else:
             self.pg.touch_conversation(conv_id)
 
-        return self._generate_assistant(conv_id, body.content.strip(), user_msg_id)
+        history = self._build_history(conv_id, before_message_id=user_msg_id)
+        return self._generate_assistant(
+            conv_id, body.content.strip(), user_msg_id, history=history
+        )
 
     def _regenerate(
         self, conv_id: str, target_message_id: str | None
@@ -107,26 +111,50 @@ class ChatService:
             raise HTTPException(status_code=400, detail="Assistant message not found")
 
         user_question = ""
+        user_msg_id_for_turn: str | None = None
         for m in messages:
             if m.id == assistant_msg.id:
                 break
             if m.role == "user":
                 user_question = m.content
+                user_msg_id_for_turn = m.id
 
         if not user_question:
             raise HTTPException(status_code=400, detail="User question not found")
 
         self.pg.delete_message(assistant_msg.id)
-        return self._generate_assistant(conv_id, user_question, None)
+        history = self._build_history(conv_id, before_message_id=user_msg_id_for_turn)
+        return self._generate_assistant(
+            conv_id, user_question, None, history=history
+        )
+
+    def _build_history(
+        self, conv_id: str, *, before_message_id: str | None = None
+    ) -> list[ChatTurn]:
+        turns: list[ChatTurn] = []
+        for row in self.pg.list_messages(conv_id):
+            if before_message_id and row.id == before_message_id:
+                break
+            turns.append(ChatTurn(role=row.role, content=row.content))
+        return turns
 
     def _generate_assistant(
-        self, conv_id: str, question: str, user_msg_id: str | None
+        self,
+        conv_id: str,
+        question: str,
+        user_msg_id: str | None,
+        *,
+        history: list[ChatTurn] | None = None,
     ) -> AssistantMessageResponse:
-        detailed = self.generator.generate_detailed(question)
+        detailed = self.generator.generate_detailed(question, history=history or [])
         sources = [SourceItem(**s) for s in detailed.sources]
         trace = TraceInfo(
             complexity=detailed.trace.complexity,
             queries=detailed.trace.queries,
+            original_question=detailed.trace.original_question,
+            standalone_query=detailed.trace.standalone_query,
+            is_follow_up=detailed.trace.is_follow_up,
+            rewrite_ms=detailed.trace.rewrite_ms,
             retrieval_ms=detailed.trace.retrieval_ms,
             rerank_ms=detailed.trace.rerank_ms,
             llm_ms=detailed.trace.llm_ms,

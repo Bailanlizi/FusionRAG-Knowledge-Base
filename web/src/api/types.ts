@@ -57,6 +57,10 @@ export interface SourceItem {
 export interface TraceInfo {
   complexity: string;
   queries: string[];
+  original_question?: string;
+  standalone_query?: string;
+  is_follow_up?: boolean;
+  rewrite_ms?: number;
   retrieval_ms: number;
   rerank_ms: number;
   llm_ms: number;

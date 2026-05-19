@@ -64,6 +64,15 @@ class MockRerankClient(BaseRerankClient):
 class MockLLMClient(BaseLLMClient):
   def chat(self, messages: list[dict[str, str]], temperature: float | None = None) -> str:
     last = messages[-1].get("content", "") if messages else ""
+    if "对话查询改写" in last or "standalone_query" in last:
+      question = last
+      if "用户最后一句话：" in last:
+        question = last.split("用户最后一句话：", 1)[-1].strip()
+      has_history = "对话历史" in last and "（无）" not in last
+      standalone = f"结合上文：{question}" if has_history else question
+      return json.dumps(
+        {"standalone_query": standalone, "is_follow_up": has_history}
+      )
     if "检索查询优化" in last or "complexity" in last.lower():
       question = last
       if "用户问题：" in last:

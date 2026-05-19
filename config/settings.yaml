@@ -23,6 +23,10 @@ multi_query:
   moderate: 3
   complex: 5
 
+chat:
+  max_history_turns: 6
+  max_assistant_chars: 400
+
 ocr:
   enabled: false
   timeout_seconds: 120

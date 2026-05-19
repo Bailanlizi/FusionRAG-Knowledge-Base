@@ -5,6 +5,17 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 
+class ChatTurn(BaseModel):
+    role: str
+    content: str
+
+
+class QueryRewriteResult(BaseModel):
+    original_question: str
+    standalone_query: str
+    is_follow_up: bool = False
+
+
 class SearchRequest(BaseModel):
     question: str
     top_k: int | None = None
@@ -41,6 +52,10 @@ class AnswerResult(BaseModel):
 class GenerationTrace(BaseModel):
     complexity: str = "SIMPLE"
     queries: list[str] = Field(default_factory=list)
+    original_question: str = ""
+    standalone_query: str = ""
+    is_follow_up: bool = False
+    rewrite_ms: float = 0.0
     retrieval_ms: float = 0.0
     rerank_ms: float = 0.0
     llm_ms: float = 0.0

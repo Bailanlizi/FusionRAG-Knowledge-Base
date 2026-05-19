@@ -89,6 +89,10 @@ class SourceItem(BaseModel):
 class TraceInfo(BaseModel):
     complexity: str
     queries: list[str]
+    original_question: str = ""
+    standalone_query: str = ""
+    is_follow_up: bool = False
+    rewrite_ms: float = 0.0
     retrieval_ms: float
     rerank_ms: float
     llm_ms: float
