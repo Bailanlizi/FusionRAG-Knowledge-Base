@@ -9,6 +9,29 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: fusion
+          POSTGRES_PASSWORD: fusion
+          POSTGRES_DB: fusion_rag
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fusion -d fusion_rag"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      USE_MOCK: "true"
+      DASHSCOPE_API_KEY: mock-key
+      POSTGRES_URL: postgresql+psycopg://fusion:fusion@localhost:5432/fusion_rag?connect_timeout=10
+      MILVUS_HOST: localhost
+      MILVUS_PORT: "19530"
+
     steps:
       - uses: actions/checkout@v4
 
@@ -16,13 +39,13 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
+      - name: Install test dependencies
         run: |
-          pip install pydantic pydantic-settings python-dotenv pyyaml numpy tiktoken pytest tenacity httpx sqlalchemy
-          pip install -r requirements.txt || true
+          python -m pip install --upgrade pip
+          pip install \
+            pydantic pydantic-settings python-dotenv pyyaml numpy tiktoken \
+            tenacity httpx sqlalchemy "psycopg[binary]" pymilvus \
+            fastapi uvicorn python-multipart pytest pytest-asyncio
 
       - name: Run tests (mock mode)
-        env:
-          USE_MOCK: "true"
-          DASHSCOPE_API_KEY: mock-key
         run: pytest tests/ -q

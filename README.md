@@ -182,8 +182,13 @@ ocr:
 
 ```bash
 set USE_MOCK=true
+set DASHSCOPE_API_KEY=mock-key
 pytest
 ```
+
+- `USE_MOCK=true` 时自动 Mock Milvus（见 `tests/conftest.py`），无需启动 Milvus。
+- `tests/test_api.py` 需要 PostgreSQL（与 `docker compose` 中库一致）；无库时会 skip。
+- 本地调试 embedding 批大小：`python scripts/debug_embedding_batch.py [文件路径]`（非 pytest）。
 
 ## 技术栈
 

@@ -21,7 +21,7 @@ Web 对话已支持 **多轮 RAG**（Query Rewrite + 历史截断）与 **乐观
 | 答案生成 | ✅ 可用 | `scripts/run_query.py`（单次 / 交互，单轮） |
 | 检索评估 | ✅ 可用 | `scripts/run_eval.py`，支持 JSON / JSONL，输出至 `reports/` |
 | Mock 模式 | ✅ 可用 | `USE_MOCK=true`，无 API Key 本地开发 |
-| 单元测试 | ✅ 可用 | `pytest`（9 个测试模块，含 `test_query_rewriter`） |
+| 单元测试 | ✅ 可用 | `pytest`（8 个测试模块；CI 含 Postgres 服务跑 API 测试） |
 | HTTP API + Web UI | ✅ 可用 | FastAPI `:8000` + React `:5173`（见 [spec-web.md](./spec-web.md)） |
 | Web 对话 UX | ✅ 可用 | 发送即清空输入、乐观显示用户气泡、加载态、Trace 展示改写查询 |
 | CI/CD | ⚠️ 部分 | 仓库含 `.github/workflows/ci.yml`，本地以 Mock 测试为主 |

@@ -1,18 +1,19 @@
-"""Pytest configuration."""
+"""Pytest hooks: mock Milvus in CI/local when USE_MOCK=true (no Milvus server required)."""
+
+from __future__ import annotations
 
 import os
-import sys
-from pathlib import Path
+from unittest.mock import MagicMock, patch
 
-import pytest
+if os.environ.get("USE_MOCK", "").lower() == "true":
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(PROJECT_ROOT))
+    def _make_milvus_store() -> MagicMock:
+        store = MagicMock()
+        store.collection_exists.return_value = False
+        store.dense_search.return_value = []
+        store.sparse_search.return_value = []
+        return store
 
-os.environ.setdefault("USE_MOCK", "true")
-os.environ.setdefault("DASHSCOPE_API_KEY", "mock-key-for-tests")
+    import src.utils.db  # noqa: F401 — ensure patch target exists
 
-
-@pytest.fixture(autouse=True)
-def mock_mode():
-    os.environ["USE_MOCK"] = "true"
+    patch("src.utils.db.MilvusStore", side_effect=_make_milvus_store).start()

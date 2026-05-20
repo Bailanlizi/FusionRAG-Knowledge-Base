@@ -18,7 +18,14 @@ from src.utils.db import PostgresClient
 
 @pytest.fixture(scope="module")
 def client():
+    from sqlalchemy import text
+
     pg = PostgresClient()
+    try:
+        with pg.engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except Exception as exc:
+        pytest.skip(f"PostgreSQL unavailable: {exc}")
     pg.init_tables()
     return TestClient(app)
 
